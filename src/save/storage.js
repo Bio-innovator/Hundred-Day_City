@@ -137,6 +137,9 @@ export function migrateAndValidate(payload) {
     remaining: Math.max(0, finite(shipment.remaining)),
     totalDelay: Math.max(0.1, finite(shipment.totalDelay, 1)),
   })) : [];
+  const legacyTime = finite(source.version, 1) < 3; // v3 起一天 90 秒；更早的存档按 2/3 折算脉冲日程
+  const migratedNextPulseDay = legacyTime ? Math.max(2, Math.round(finite(source.nextPulseDay, 12) * 60 / 90)) : Math.max(2, Math.floor(finite(source.nextPulseDay, 12)));
+  const migratedLastWarningDay = legacyTime ? Math.max(0, Math.round(finite(source.lastWarningDay) * 60 / 90)) : Math.max(0, Math.floor(finite(source.lastWarningDay)));
   const validStages = ["idle", "assembling", "awaitingFuel", "ready", "launching", "landed"];
   return {
     ...base,
@@ -154,14 +157,19 @@ export function migrateAndValidate(payload) {
     shipments,
     nextRouteId: Math.max(1, Math.floor(finite(source.nextRouteId, routes.length + 1))),
     nextShipmentId: Math.max(1, Math.floor(finite(source.nextShipmentId, shipments.length + 1))),
-    nextPulseDay: Math.max(2, Math.floor(finite(source.nextPulseDay, 12))),
-    lastWarningDay: Math.max(0, Math.floor(finite(source.lastWarningDay))),
+    nextPulseDay: migratedNextPulseDay,
+    lastWarningDay: migratedLastWarningDay,
     rocket: {
       stage: validStages.includes(source.rocket?.stage) ? source.rocket.stage : "idle",
       progress: Math.max(0, finite(source.rocket?.progress)),
       duration: Math.max(1, finite(source.rocket?.duration, base.rocket.duration)),
     },
-    stats: Object.fromEntries(Object.entries(base.stats).map(([key, value]) => [key, Math.max(0, Math.floor(finite(source.stats?.[key], value)))])),
+    stats: (() => {
+      const merged = Object.fromEntries(Object.entries(base.stats).map(([key, value]) => [key, Math.max(0, Math.floor(finite(source.stats?.[key], value)))]));
+      // 老存档首次载入新版本：统计起点记为当前时刻，「全程型」成就只认之后的数据。
+      if (!source.stats?.trackedSince && finite(source.version, 1) < SAVE_VERSION) merged.trackedSince = Math.max(0, Math.floor(finite(source.elapsed)));
+      return merged;
+    })(),
     ending: source.ending && ["backup", "stay", "upload"].includes(source.ending.id) ? { ...source.ending } : null,
     achievements: Array.isArray(source.achievements) ? source.achievements.filter((id, index, list) => typeof id === "string" && list.indexOf(id) === index) : [],
     settings: {

@@ -1,6 +1,6 @@
 import { MAP_SIZE, TILE_SIZE } from "../data/maps.js";
 import { BUILDING_BY_ID } from "../data/buildings.js";
-import { CORE_INDEX, isOperational } from "../core/state.js";
+import { CORE_INDEX, isConnected, isOperational } from "../core/state.js";
 import { gameEvents } from "../core/events.js";
 import { getPalette } from "../../assets/palette.js";
 import {
@@ -35,26 +35,56 @@ export class GridRenderer {
     this.pointers = new Map();
     this.pinch = null;
     this.pendingCell = null;
+    this.hoverCell = null;
+    this.drag = null;
+    this.dragging = false;
     canvas.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (this.pointers.size === 2) {
         this.pendingCell = null;
+        this.drag = null;
         const [first, second] = [...this.pointers.values()];
         this.pinch = { distance: Math.hypot(first.x - second.x, first.y - second.y), zoomIndex: zoomIndex(this.currentZoom) };
         return;
       }
       if (this.pointers.size > 2) return;
+      const container = canvas.parentElement;
+      this.drag = { id: event.pointerId, startX: event.clientX, startY: event.clientY, scrollLeft: container?.scrollLeft ?? 0, scrollTop: container?.scrollTop ?? 0, container };
+      this.dragging = false;
       if (event.pointerType === "touch") {
         this.pendingCell = { x: event.clientX, y: event.clientY };
         return;
       }
-      this.emitCell(event.clientX, event.clientY);
+      // 鼠标在 pointerup 时区分「点击 / 拖动」，位移 < 4px 视为点击。
     });
     canvas.addEventListener("pointermove", (event) => {
-      if (!this.pointers.has(event.pointerId)) return;
+      if (!this.pointers.has(event.pointerId)) {
+        // 悬停高亮（未按按钮）。
+        if (event.pointerType === "mouse") {
+          this.hoverCell = this.cellFromClient(event.clientX, event.clientY);
+        }
+        return;
+      }
       this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-      if (this.pointers.size !== 2 || !this.pinch) return;
+      if (this.pointers.size !== 2) {
+        // 单指/单键拖动地图。
+        if (this.drag && this.drag.id === event.pointerId && this.drag.container) {
+          const dx = event.clientX - this.drag.startX;
+          const dy = event.clientY - this.drag.startY;
+          if (!this.dragging && Math.hypot(dx, dy) > 4) {
+            this.dragging = true;
+            this.pendingCell = null;
+            canvas.style.cursor = "grabbing";
+          }
+          if (this.dragging) {
+            this.drag.container.scrollLeft = this.drag.scrollLeft - dx;
+            this.drag.container.scrollTop = this.drag.scrollTop - dy;
+          }
+        }
+        return;
+      }
+      if (!this.pinch) return;
       const [first, second] = [...this.pointers.values()];
       const distance = Math.hypot(first.x - second.x, first.y - second.y);
       if (distance < 4 || this.pinch.distance < 4) return;
@@ -73,18 +103,31 @@ export class GridRenderer {
       this.pointers.delete(event.pointerId);
       if (this.pointers.size < 2) this.pinch = null;
       if (this.pointers.size > 0) return;
+      const wasDragging = this.dragging;
       const pending = this.pendingCell;
       this.pendingCell = null;
-      if (!pending) return;
-      if (Math.hypot(pending.x - event.clientX, pending.y - event.clientY) > 10) return;
-      this.emitCell(event.clientX, event.clientY);
+      this.drag = null;
+      this.dragging = false;
+      canvas.style.cursor = "grab";
+      if (wasDragging) return;
+      if (pending) {
+        if (Math.hypot(pending.x - event.clientX, pending.y - event.clientY) > 10) return;
+        this.emitCell(event.clientX, event.clientY);
+        return;
+      }
+      if (event.pointerType === "mouse") this.emitCell(event.clientX, event.clientY);
     };
     canvas.addEventListener("pointerup", endPointer);
     canvas.addEventListener("pointercancel", (event) => {
       this.pointers.delete(event.pointerId);
       if (this.pointers.size < 2) this.pinch = null;
       this.pendingCell = null;
+      this.drag = null;
+      this.dragging = false;
+      canvas.style.cursor = "grab";
     });
+    canvas.addEventListener("pointerleave", () => { this.hoverCell = null; });
+    canvas.style.cursor = "grab";
     canvas.addEventListener("wheel", (event) => {
       if (!event.ctrlKey || !this.onZoom) return;
       event.preventDefault();
@@ -180,11 +223,47 @@ export class GridRenderer {
     this.terrainCache.clear();
   }
 
+  resetView() {
+    this.setZoom(1);
+    this.resetScroll();
+  }
+
   setZoom(zoom) {
     this.currentZoom = migrateZoom(zoom);
     const size = Math.round(GRID_SIZE * this.currentZoom);
     this.canvas.style.width = `${size}px`;
     this.canvas.style.height = `${size}px`;
+  }
+
+  resetScroll() {
+    const container = this.canvas.parentElement;
+    if (!container) return;
+    container.scrollLeft = Math.max(0, (container.scrollWidth - container.clientWidth) / 2);
+    container.scrollTop = Math.max(0, (container.scrollHeight - container.clientHeight) / 2);
+  }
+
+  /** 视角是否偏离默认（居中 + 100%），供「复原」按钮高亮。 */
+  isViewOffset() {
+    const container = this.canvas.parentElement;
+    if (!container) return false;
+    if (this.currentZoom !== 1) return true;
+    return Math.abs(container.scrollLeft - Math.max(0, (container.scrollWidth - container.clientWidth) / 2)) > 4
+      || Math.abs(container.scrollTop - Math.max(0, (container.scrollHeight - container.clientHeight) / 2)) > 4;
+  }
+
+  cellFromClient(clientX, clientY) {
+    const rect = this.canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    const scale = rect.width / GRID_SIZE;
+    const x = Math.floor((clientX - rect.left) / scale / TILE_SIZE);
+    const y = Math.floor((clientY - rect.top) / scale / TILE_SIZE);
+    if (x < 0 || x >= MAP_SIZE || y < 0 || y >= MAP_SIZE) return null;
+    return y * MAP_SIZE + x;
+  }
+
+  setInteraction({ getBuildIntent, validateBuild }) {
+    this.getBuildIntent = getBuildIntent;
+    this.validateBuild = validateBuild;
   }
 
   applyZoomIndex(index, clientX, clientY) {
@@ -251,7 +330,50 @@ export class GridRenderer {
       context.textBaseline = "top";
       context.fillText(String(Math.min(9, building.count)), x + width - 7, y + 2);
     }
-    if (isOperational(building) && BUILDING_BY_ID[building.id].category === "energy" && this.frame % 50 < 25) {
+    const operational = isOperational(building);
+    const connected = operational ? isConnected(map, index, map.currentDepth ?? 0) : false;
+    if (operational && !connected) {
+      // 待机：压暗 + 琥珀点闪烁（不播产出粒子/闪光）。
+      context.save();
+      context.globalAlpha = 0.45;
+      context.fillStyle = palette['0'];
+      context.fillRect(x, y, width, height);
+      context.restore();
+      if (this.frame % 40 < 20) {
+        context.fillStyle = palette.x;
+        context.fillRect(x + Math.floor(width / 2) - 1, y + Math.floor(height / 2) - 1, 3, 3);
+      }
+    }
+    if (operational && connected) {
+      const powerCut = map.energy.disabled.includes(`${map.currentDepth ?? 0}:${index}`);
+      const consume = BUILDING_BY_ID[building.id]?.consume ?? {};
+      let noInput = false;
+      for (const resource of Object.keys(consume)) {
+        if ((map.resources[resource] ?? 0) <= 0) { noInput = true; break; }
+      }
+      const hurt = building.hp < building.maxHp && building.hp / building.maxHp <= 0.35;
+      if (this.currentZoom < 1) {
+        // 小缩放下角标会看不清：合并为 2px 色点。
+        if (powerCut || noInput) {
+          context.fillStyle = palette.x;
+          context.fillRect(x + Math.floor(width / 2) - 1, y + Math.floor(height / 2) - 1, 2, 2);
+        }
+        if (hurt) {
+          context.fillStyle = palette.j;
+          context.fillRect(x + 3, y + height - 5, 2, 2);
+        }
+      } else {
+        const breathe = this.frame % 72 < 36; // 同类图标同步呼吸（1.2s 周期）
+        if (powerCut && breathe) drawPowerBadge(context, x + width - 9, y + 1, palette);
+        else if (noInput && breathe) drawNoInputBadge(context, x + width - 9, y + 1, palette);
+        if (hurt) {
+          context.fillStyle = palette.j;
+          context.fillRect(x + 1, y + height - 4, 4, 2);
+          context.fillRect(x + 1, y + height - 6, 2, 2);
+        }
+      }
+    }
+    if (isOperational(building) && connected && BUILDING_BY_ID[building.id].category === "energy" && this.frame % 50 < 25) {
       context.fillStyle = palette.i;
       context.fillRect(x + Math.floor(width / 2) - 1, y + 1, 2, 2);
     }
@@ -272,6 +394,17 @@ export class GridRenderer {
     context.fillRect(0, 0, GRID_SIZE, GRID_SIZE);
     context.translate(shake.x, shake.y);
     context.drawImage(this.getTerrain(state), 0, 0);
+    // 常驻网格线（弱）：仅缩放 ≥ 100% 时绘制，避免小缩放糊成一片。
+    if (this.currentZoom >= 1) {
+      context.save();
+      context.globalAlpha = this.theme === "light" ? 0.10 : 0.12;
+      context.fillStyle = this.theme === "light" ? palette['1'] : palette['7'];
+      for (let i = 1; i < MAP_SIZE; i += 1) {
+        context.fillRect(i * TILE_SIZE, 0, 1, GRID_SIZE);
+        context.fillRect(0, i * TILE_SIZE, GRID_SIZE, 1);
+      }
+      context.restore();
+    }
     // 地基：不透明 24px 像素地砖，确保设施下方不透出荒地纹理。
     for (let index = 0; index < map.buildings.length; index += 1) {
       const building = map.buildings[index];
@@ -317,6 +450,58 @@ export class GridRenderer {
       context.fillRect(x + width - 7, y + height - 1, 7, 1);
       context.fillRect(x + width - 1, y + height - 7, 1, 7);
     }
+    // 选中镜面防御罩：描出 8 格覆盖范围（青色角标虚线感）。
+    if (this.selectedIndex !== null && map.buildings[this.selectedIndex]?.id === "mirrorShield") {
+      const cx = this.selectedIndex % MAP_SIZE;
+      const cy = Math.floor(this.selectedIndex / MAP_SIZE);
+      context.fillStyle = palette.i;
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          if (!dx && !dy) continue;
+          const nx = cx + dx; const ny = cy + dy;
+          if (nx < 0 || ny < 0 || nx >= MAP_SIZE || ny >= MAP_SIZE) continue;
+          const bx = nx * TILE_SIZE; const by = ny * TILE_SIZE;
+          context.fillRect(bx, by, 3, 1); context.fillRect(bx, by, 1, 3);
+          context.fillRect(bx + TILE_SIZE - 3, by, 3, 1); context.fillRect(bx + TILE_SIZE - 1, by, 1, 3);
+          context.fillRect(bx, by + TILE_SIZE - 1, 3, 1); context.fillRect(bx, by + TILE_SIZE - 3, 1, 3);
+          context.fillRect(bx + TILE_SIZE - 3, by + TILE_SIZE - 1, 3, 1); context.fillRect(bx + TILE_SIZE - 1, by + TILE_SIZE - 3, 1, 3);
+        }
+      }
+    }
+    // 悬停高亮与建造预览：可建青色 / 不可建红色，拖动时不显示。
+    if (this.hoverCell !== null && !this.dragging) {
+      const intent = this.getBuildIntent?.() ?? null;
+      const hx = (this.hoverCell % MAP_SIZE) * TILE_SIZE;
+      const hy = Math.floor(this.hoverCell / MAP_SIZE) * TILE_SIZE;
+      if (intent) {
+        const ok = this.validateBuild ? this.validateBuild(this.hoverCell, intent.buildingId) : true;
+        const size = intent.size ?? { w: 1, h: 1 };
+        const color = ok ? palette.i : palette.j;
+        context.fillStyle = color;
+        context.fillRect(hx, hy, size.w * TILE_SIZE, 1);
+        context.fillRect(hx, hy + size.h * TILE_SIZE - 1, size.w * TILE_SIZE, 1);
+        context.fillRect(hx, hy, 1, size.h * TILE_SIZE);
+        context.fillRect(hx + size.w * TILE_SIZE - 1, hy, 1, size.h * TILE_SIZE);
+        if (ok) {
+          const ghost = getBuildingSprite(intent.buildingId);
+          context.save();
+          context.globalAlpha = 0.4;
+          for (let dy = 0; dy < size.h; dy += 1) {
+            for (let dx = 0; dx < size.w; dx += 1) context.drawImage(ghost, hx + dx * TILE_SIZE + 4, hy + dy * TILE_SIZE + 4);
+          }
+          context.restore();
+        }
+      } else {
+        context.save();
+        context.globalAlpha = 0.5;
+        context.fillStyle = palette.i;
+        context.fillRect(hx, hy, TILE_SIZE, 1);
+        context.fillRect(hx, hy + TILE_SIZE - 1, TILE_SIZE, 1);
+        context.fillRect(hx, hy, 1, TILE_SIZE);
+        context.fillRect(hx + TILE_SIZE - 1, hy, 1, TILE_SIZE);
+        context.restore();
+      }
+    }
     if (map.energy.demand > map.energy.supply) {
       context.save();
       context.globalAlpha = 0.18;
@@ -327,4 +512,19 @@ export class GridRenderer {
     this.effects.draw(context, state, this.frame);
     context.restore();
   }
+}
+
+function drawPowerBadge(context, bx, by, palette) {
+  context.fillStyle = palette.x;
+  context.fillRect(bx + 3, by, 2, 3);
+  context.fillRect(bx + 2, by + 3, 3, 2);
+  context.fillRect(bx + 3, by + 5, 2, 3);
+  context.fillStyle = palette['0'];
+  context.fillRect(bx + 3, by + 2, 1, 4);
+}
+
+function drawNoInputBadge(context, bx, by, palette) {
+  context.fillStyle = palette.x;
+  context.fillRect(bx + 3, by, 2, 4);
+  context.fillRect(bx + 3, by + 5, 2, 2);
 }
