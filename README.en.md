@@ -42,16 +42,30 @@ Biomass pinned at 0 is not always a bug. When chemical plants consume everything
 - ▲ / ▼ on the map switches underground depth. The top bar holds Research, Network, Endgame, and Settings; on mobile the bottom bar switches Build, Map, Research, Logistics, and Log.
 - Saves export as a dated file, import by drag and drop, and still accept Base64 text. Imports show a summary first, back up your current run, then overwrite.
 
+Drag the map to pan (moves beyond 4px never build). Press `R`, `Ctrl + 0`, or the `⌖` button on the map toolbar to reset the view to centred at 100%. With a blueprint selected, hovering draws the full footprint: cyan plus a translucent ghost when buildable, red when blocked.
+
 The game is fully paused while the page is closed: no production, no day counter, no disasters.
+
+### Shortcuts
+
+| Key | Action |
+|---|---|
+| `Space` | Pause / resume (ignored while a dialog is open) |
+| `1` / `2` / `4` | Set speed |
+| `B` | Toggle the build panel |
+| `R` / `Ctrl + 0` | Reset the view |
+| `Esc` | Close the dialog |
+| `?` / `H` | This shortcut list |
 
 ## Core Rules
 
 - **Brownouts scale output, they do not stop the map.** Efficiency becomes `supply / demand`. After 30 seconds of shortage, the largest consumers are shed first.
-- One in-game day is about 60 seconds at 1× speed. One hundred days is roughly one hundred minutes.
+- One in-game day is 90 seconds at 1× speed. One hundred days is roughly 150 minutes.
 - Every map has its own grid, stock, hazard pressure, and Transit Hub. Resources cross maps only by Trade Route.
 - Routes have capacity, delay, and loss. A pulse can cut them; reconnecting costs scrap.
 - A Coronal Pulse is warned one day ahead and deals 50%–70% of max HP to an unprotected facility. Repeated destruction on the same cell builds resistance, and Fortification adds more. Underground facilities ignore pulses but produce 70%.
 - Ash Storms arrive every 180–300 seconds and last 20–30 seconds: 50% output, ash particles at the screen edge.
+- **Connectivity matters.** A facility only runs while it is reachable from a network source: the Compute Center on Ash Plains, a Transit Hub on other maps, a Shaft Elevator underground, a Space Station in orbit. Disconnected facilities go on standby — no output, no power draw. The map status text is clickable and jumps to the first problem facility.
 - Launch chain: launchpad → rocket factory → structural assembly → fuel loading → launch → lunar landing → Data Core city.
 - Three endings: Back Up Civilization, Stay (unlocks on Day 100), Upload (needs the upload tech). After any ending you can start New Game+ and keep tech and Compute Center level.
 
@@ -62,13 +76,41 @@ The game is fully paused while the page is closed: no production, no day counter
 - No sunlight and no storms underground: solar and wind produce nothing, extraction produces ×1.5.
 - Collapses happen at random and turn a cell back into rock, burying whatever stood there.
 - The 5×5 launchpad and rocket factory, the 3×3 orbital elevator and fuel plant, and the 2×2 assembler, chip fab, and Data Core all count adjacency and damage as one footprint.
-- Achievements and their quotations are written to the watch log. The full list lives in Settings → About.
+- Achievements and their quotations are written to the watch log and shown as a non-modal card when unlocked. The full list lives in the Achievements entry on the top bar.
+
+### Mirror Shield
+
+- Costs 120 metal · 30 chip · 40 rare, 120 HP, needs `tech_hardening`.
+- Gives every surrounding cell (8 directions) −6% pulse damage per shield, capped at −45% per cell. It does not protect itself.
+- The shield must be connected and powered: standby or load-shedding drops its reduction to zero — a deliberate risk.
+- Reduction stacks with cell resistance and Fortification, still capped at 90%. It does not offset the `2^(Lv−1)` stack risk; its job is protecting key nodes.
+
+### Underground and Space Facilities
+
+| Facility | Layer | Size | Effect |
+|---|---|---|---|
+| Deep Mine | Underground | 2×2 | Rare +1.2/s, 25 power |
+| Geothermal Well | Underground | 1×1 | Energy +20/s, weather-independent |
+| Fungal Farm | Underground | 2×2 | Biomass +2/s, no sunlight |
+| Shaft Elevator | Underground | 2×2 | Underground network source, one per map |
+| Support Pillar | Underground | 1×1 | Opens a 3×3 rock area, stackable |
+| Cooling Well | Underground | 1×1 | Adjacent facilities use 15% less power |
+| Space Station | Orbit | 3×3 | +1500 storage, orbit network source |
+| Solar Satellite | Orbit | 2×2 | Energy +40/s |
+| Relay Station | Orbit | 1×1 | Routes through it carry 25% more |
+| Regolith Drill | Farside | 1×1 | Regolith +1/s |
+| Regolith Printer | Farside | 2×2 | Regolith → alloy at 3:1 |
+| Eco Dome | Farside | 2×2 | +800 storage, some biomass |
+| Cryo Lab | Farside | 3×3 | Compute +5/s |
+| Mass Driver | Farside | 5×5 | Farside routes ×2 capacity, half loss |
+
+Orbit and the farside are vacuum: solar panels and wind turbines produce nothing there, so fission, fusion, and solar satellites carry the load. Alloy and regolith are saved with the run.
 
 ## Saves
 
 The main save lives in browser `localStorage` and is written every 10 seconds. The save panel exports a dated file, accepts drag and drop, and keeps Base64 text as a fallback. Before overwriting, it shows the cycle, day, facility count, tech count, and save time, then writes a timestamped local backup you can restore.
 
-Save format is v2. v1 saves load normally; underground layers and facility sizes are filled in during migration.
+Save format is v3. Older saves migrate automatically: v1 gains underground layers and facility sizes, and pre-v3 saves stored pulse schedules in days under a 60-second day, so those values are scaled by 2/3. A stats baseline is also recorded so a migrated run cannot accidentally unlock the "never paused" or "never dismantled" hidden achievements.
 
 Restart clears the current cycle, maps, tech, and main save. It asks twice and does not keep New Game+ tech.
 
