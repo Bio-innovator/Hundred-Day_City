@@ -6,6 +6,11 @@ function completedBuildings(state) {
   return Object.values(state.maps).flatMap((map) => map.buildings.filter((building) => isOperational(building)));
 }
 
+// 「全程型」隐藏成就只看本版本（trackedSince）之后的数据，避免老存档补零误发。
+function landedTracked(state) {
+  return state.rocket.stage === "landed" && (state.stats.trackedSince === 0 || state.elapsed > state.stats.trackedSince);
+}
+
 export const ACHIEVEMENTS = [
   {
     id: "first-ignition",
@@ -80,7 +85,133 @@ export const ACHIEVEMENTS = [
     quoteId: "armstrong-step",
     test: (state) => state.rocket.stage === "landed",
   },
+  {
+    id: "hoarder",
+    name: "仓鼠症",
+    description: "任一资源库存 ≥ 10000。",
+    quoteId: "wilde-stars",
+    test: (state) => Object.values(state.maps).some((map) => Object.values(map.resources).some((value) => value >= 10000)),
+  },
+  {
+    id: "lv10",
+    name: "十级学者",
+    description: "任一设施升到 Lv.10。",
+    quoteId: "bacon-knowledge",
+    test: (state) => Object.values(state.maps).some((map) => map.buildings.some((building) => (building?.count ?? 0) >= 10)),
+  },
+  {
+    id: "full-spectrum",
+    name: "全谱系",
+    description: "七个类别各建成一座设施。",
+    quoteId: "haldane-universe",
+    test: (state) => {
+      const categories = new Set();
+      for (const map of Object.values(state.maps)) {
+        for (const building of map.buildings) if (isOperational(building)) categories.add(BUILDING_BY_ID[building.id]?.category);
+      }
+      return categories.size >= 7;
+    },
+  },
+  {
+    id: "paperclip",
+    name: "回形针",
+    description: "累计产出废钢 ≥ 1,000,000。",
+    quoteId: "anonymous-network",
+    test: (state) => state.stats.steelProduced >= 1_000_000,
+  },
+  {
+    id: "night-owl",
+    name: "守夜人",
+    description: "单局真实游玩 ≥ 60 分钟。",
+    quoteId: "nietzsche-stronger",
+    test: (state) => state.stats.sessionRealSeconds >= 3600,
+  },
+  {
+    id: "no-scrapyard",
+    name: "无米之炊",
+    description: "第一次脉冲前一座废料场都没建；拆掉至少 2 座后才建起第一座。",
+    quoteId: "anonymous-first",
+    hidden: true,
+    test: (state) => state.stats.scrapyardsBuilt >= 1 && Boolean(state.stats.firstPulseNoScrapyard) && state.stats.dismantled >= 2,
+  },
+  {
+    id: "stubborn",
+    name: "我就不信",
+    description: "资源不足时累计硬点建造卡片 10 次。",
+    quoteId: "anonymous-first",
+    hidden: true,
+    test: (state) => state.stats.cardRejects >= 10,
+  },
+  {
+    id: "wall-gazer",
+    name: "面壁者",
+    description: "连续 30 分钟没有任何操作（暂停不计）。",
+    quoteId: "wilde-stars",
+    hidden: true,
+    test: (state) => state.stats.idleSeconds >= 1800,
+  },
+  {
+    id: "demolition-addict",
+    name: "拆迁上瘾",
+    description: "单局累计拆除 100 座设施。",
+    quoteId: "nietzsche-stronger",
+    hidden: true,
+    test: (state) => state.stats.dismantled >= 100,
+  },
+  {
+    id: "flawless-grid",
+    name: "白璧无瑕",
+    description: "开局到发射从未断电（按本版本起算）。",
+    quoteId: "clarke-magic",
+    hidden: true,
+    test: (state) => landedTracked(state) && state.stats.blackoutSeconds === 0,
+  },
+  {
+    id: "minimal",
+    name: "极简主义",
+    description: "发射时全网络设施总数 ≤ 40 座。",
+    quoteId: "haldane-universe",
+    hidden: true,
+    test: (state) => landedTracked(state) && state.stats.peakFacilities <= 40,
+  },
+  {
+    id: "hundred-days",
+    name: "百日之内",
+    description: "DAY ≤ 100 完成发射。",
+    quoteId: "armstrong-step",
+    hidden: true,
+    test: (state) => state.rocket.stage === "landed" && state.day <= 100,
+  },
+  {
+    id: "shield-wall",
+    name: "镜花水月",
+    description: "单次脉冲中 ≥ 12 格处于镜面罩覆盖且 0 座被毁。",
+    quoteId: "clarke-magic",
+    hidden: true,
+    test: (state) => Boolean(state.stats.shieldWallPulse),
+  },
+  {
+    id: "pause-free",
+    name: "时间不等人",
+    description: "整局从未显式暂停，并完成发射。",
+    quoteId: "anonymous-first",
+    hidden: true,
+    test: (state) => (state.stats?.pausesUsed ?? 0) === 0 && landedTracked(state),
+  },
+  {
+    id: "no-demolition",
+    name: "一锤定音",
+    description: "完成发射时从未拆除过设施。",
+    quoteId: "anonymous-first",
+    hidden: true,
+    test: (state) => (state.stats?.dismantled ?? 0) === 0 && landedTracked(state),
+  },
 ];
+
+export function getVisibleAchievements(state) {
+  const unlocked = new Set(state.achievements ?? []);
+  return ACHIEVEMENTS.filter((achievement) => !achievement.hidden || unlocked.has(achievement.id));
+}
 
 export function getNewAchievements(state) {
   const unlocked = new Set(state.achievements ?? []);
