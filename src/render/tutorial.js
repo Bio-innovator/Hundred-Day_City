@@ -38,7 +38,7 @@ const REQUIRED_STEPS = [
     selector: '[data-resource="steel"]',
     target: "废钢资源条",
     title: "看懂资源条",
-    text: "左边是库存，右边是每秒净变化。废钢达到 20 后，你就完成了生存最小闭环。",
+    text: "左边是库存，右边是每秒净变化。废钢达到 20 后，你就完成了生存最小闭环。另外记住：设施必须与运算中心连成一片才会运转，断开就会待机——待机不耗电，也不产出。",
     action: "等待废钢 ≥ 20",
     ready: (_progress, state) => (state.maps[state.currentMap]?.resources.steel ?? 0) >= 20,
   },

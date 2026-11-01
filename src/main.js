@@ -38,6 +38,7 @@ function dispatch(action) {
 }
 
 const grid = new GridRenderer(canvas, (index) => hud.selectCell(index), (zoom) => hud.changeSetting("zoom", zoom));
+grid.setInteraction({ getBuildIntent: () => hud.buildIntent(), validateBuild: (index, buildingId) => hud.validateBuild(index, buildingId) });
 const hud = new HUD(state, dispatch);
 const tutorial = new Tutorial(state);
 hud.attachGrid(grid);

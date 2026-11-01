@@ -35,7 +35,8 @@ button {
 button:hover:not(:disabled), button:focus-visible { border-color: var(--energy); color: #fff; }
 button:focus-visible, canvas:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--energy); outline-offset: 2px; }
 button:active:not(:disabled) { background: #283038; }
-button:disabled { cursor: not-allowed; color: #66676d; border-color: #303139; background: #15171b; }
+body.paused::before { content: "已暂停"; position: fixed; z-index: 30; top: 0; left: 0; right: 0; height: 2px; background: var(--soil); pointer-events: none; }
+body.paused #game-canvas { filter: brightness(0.92); }
 button.active, button.primary { border-color: var(--energy); color: var(--energy); }
 button.danger { border-color: var(--danger); color: var(--danger); }
 button.research { border-color: var(--research); color: var(--research); }
@@ -492,3 +493,35 @@ small { font-size: 12px; }
   .endgame-task { grid-template-columns: 22px 1fr; }
   .task-progress { grid-column: 2; }
 }
+
+/* ===== 改进5：告警、帮助、成就弹层、暂停罩 ===== */
+.map-status { cursor: pointer; }
+.map-status:focus-visible { outline: 1px solid var(--energy); outline-offset: 2px; }
+#reset-view { min-width: 30px; min-height: 26px; padding: 2px 6px; }
+#reset-view.active { color: var(--soil); border-color: var(--soil); }
+
+.help-table { display: grid; gap: 4px; }
+.help-row { display: grid; grid-template-columns: 120px 1fr; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); background: var(--panel-2); }
+.help-row strong { color: var(--energy); font-family: var(--font-mono); }
+
+.hidden-tag { font-style: normal; color: var(--soil); font-size: 11px; border: 1px solid var(--soil); padding: 0 3px; }
+
+.achievement-pop {
+  position: fixed; right: 16px; bottom: 16px; z-index: 8000;
+  width: 320px; text-align: left; display: grid; gap: 4px;
+  padding: 12px 14px; border: 2px solid var(--soil);
+  background: var(--panel); color: var(--text);
+  cursor: pointer; animation: pop-in 0.18s steps(3) both;
+}
+.achievement-pop strong { color: var(--soil); }
+.achievement-pop small { color: var(--muted); }
+@keyframes pop-in { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .achievement-pop { animation: none; } }
+
+body.paused #game-canvas { filter: brightness(0.92); }
+body.paused .map-stage::after {
+  content: "已暂停"; position: absolute; top: 10px; right: 12px;
+  padding: 2px 8px; border: 1px solid var(--soil); color: var(--soil);
+  font-size: 12px; letter-spacing: 2px; pointer-events: none;
+}
+.map-stage { position: relative; }
