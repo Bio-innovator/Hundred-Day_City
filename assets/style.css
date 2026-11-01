@@ -244,7 +244,7 @@ small { font-size: 10px; }
   .map-status { width: 100%; text-align: left; margin-left: 0; }
   .map-toolbar button { min-height: 44px; }
   .selection-panel { align-items: flex-start; flex-direction: column; }
-  .mobile-nav { position: fixed; z-index: 12; bottom: 0; left: 0; right: 0; display: grid; grid-template-columns: repeat(5, 1fr); height: 60px; background: var(--panel); border-top: 2px solid var(--line); }
+  .mobile-nav { position: fixed; z-index: 12; bottom: 0; left: 0; right: 0; display: grid; grid-template-columns: repeat(6, 1fr); height: 60px; background: var(--panel); border-top: 2px solid var(--line); }
   .mobile-nav button { min-width: 0; padding: 5px 2px; border: 0; border-right: 1px solid var(--line); font-size: 10px; }
   .log-panel.mobile-open { top: 142px; bottom: 60px; }
   .tech-tree { grid-template-columns: repeat(4, 190px); }
