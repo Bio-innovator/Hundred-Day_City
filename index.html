@@ -18,15 +18,16 @@
       </div>
       <div class="top-stats" aria-label="全局状态">
         <div class="stat" id="energy-stat"><span>能量</span><strong id="energy-value">0 / 0</strong></div>
-        <div class="stat"><span>数据</span><strong id="data-value" class="text-research">0</strong></div>
+        <div class="stat"><span>算力</span><strong id="data-value" class="text-research">0</strong></div>
         <div class="stat"><span>日序</span><strong id="day-value">DAY 001</strong></div>
         <div class="stat" id="disaster-stat"><span>日冕脉冲</span><strong id="disaster-value">12 天</strong></div>
       </div>
       <nav class="top-actions" aria-label="游戏功能">
-        <button type="button" data-open="research">科研</button>
+        <button type="button" data-open="research">科技树</button>
         <button type="button" data-open="network">网络</button>
         <button type="button" data-open="endgame">终局</button>
         <button type="button" data-open="achievements" id="achievements-button">成就 <span id="achievement-count">0/10</span></button>
+        <button type="button" data-pause id="pause-button" aria-label="暂停游戏" aria-pressed="false">⏸</button>
         <button type="button" data-open="settings" aria-label="打开设置">⚙ 设置</button>
       </nav>
     </header>
@@ -61,7 +62,8 @@
         </div>
         <div class="map-description" id="map-description"></div>
         <div class="map-toolbar" aria-label="地图状态">
-          <span class="map-status" id="map-status">没有采集节点，资源不会增长</span>
+          <span class="map-status" id="map-status" role="button" tabindex="0" title="点击定位第一座问题设施">没有采集节点，资源不会增长</span>
+          <button type="button" id="reset-view" aria-label="复原视角（居中 + 100%）" title="复原视角（R）">⌖</button>
         </div>
         <div class="canvas-scroll" id="canvas-scroll">
           <canvas id="game-canvas" width="576" height="576" tabindex="0" aria-label="24 乘 24 格城市地图。选择左侧建筑后点击格子建造。"></canvas>
@@ -88,7 +90,7 @@
     <nav class="mobile-nav" aria-label="移动端面板">
       <button type="button" data-mobile="build">建造</button>
       <button type="button" data-mobile="map" class="active">地图</button>
-      <button type="button" data-open="research">科研</button>
+      <button type="button" data-open="research">科技树</button>
       <button type="button" data-open="network">物流</button>
       <button type="button" data-mobile="log">日志</button>
     </nav>

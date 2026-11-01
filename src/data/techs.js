@@ -125,7 +125,7 @@ export const TECHS = [
     branch: 'processing',
     cost: 600,
     requires: ['tech_assembly', 'tech_grid'],
-    description: '解锁数据核心与模拟器，全部数据产出提高百分之五十。',
+    description: '解锁数据核心与模拟器，全部算力产出提高百分之五十。',
     effects: { dataMultiplier: 1.5 },
     position: { x: 1, y: 5 }
   },

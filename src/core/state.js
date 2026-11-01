@@ -9,10 +9,10 @@ import { createGameSeed, deriveSeed, nextRandom } from "./rng.js";
 import { gameEvents } from "./events.js";
 import { ZOOM_STEPS, migrateZoom } from "../data/zoom.js";
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const CELL_COUNT = MAP_SIZE * MAP_SIZE;
 export const CORE_INDEX = Math.floor(MAP_SIZE / 2) * MAP_SIZE + Math.floor(MAP_SIZE / 2);
-export const RESOURCE_IDS = ["steel", "metal", "rare", "biomass", "chem", "chip", "helium3", "fuel"];
+export const RESOURCE_IDS = ["steel", "metal", "rare", "biomass", "chem", "chip", "helium3", "fuel", "alloy", "regolith"];
 export const RESOURCE_NAMES = {
   steel: "废钢",
   metal: "金属",
@@ -22,7 +22,9 @@ export const RESOURCE_NAMES = {
   chip: "芯片",
   helium3: "氦-3",
   fuel: "燃料",
-  data: "数据",
+  alloy: "合金",
+  regolith: "月岩",
+  data: "算力",
   energy: "能量",
 };
 
@@ -60,10 +62,12 @@ export function createMapState(mapId, seed) {
     rationing: false,
     stormStarted: 0,
     stormUntil: 0,
+    nextCollapse: 0,
+    connectivityEnabled: true,
+    landingSite: mapId === "moon" ? 300 : null,
     nextHazard: 45,
   };
 }
-
 function initialLog(day, key, values = {}) {
   const templates = LOG_LIBRARY[key] ?? ["档案事件已记录。"];
   return { day, text: formatLog(templates[0], { day, map: MAP_BY_ID.ash.name, ...values }), tone: "normal" };
@@ -92,7 +96,7 @@ export function createInitialState(options = {}) {
     nextPulseDay: 12,
     lastWarningDay: 0,
     rocket: { stage: "idle", progress: 0, duration: BUILDING_BY_ID.rocketFactory.ability.rocketTime },
-    stats: { built: 0, completed: 0, destroyed: 0, pulses: 0, launches: 0, routesOpened: 0, excavations: 0 },
+    stats: { built: 0, completed: 0, destroyed: 0, pulses: 0, launches: 0, routesOpened: 0, excavations: 0, pausesUsed: 0, dismantled: 0, scrapyardsBuilt: 0, blackoutSeconds: 0, peakFacilities: 0, cardRejects: 0, idleSeconds: 0, steelProduced: 0, sessionRealSeconds: 0, firstPulseNoScrapyard: false, shieldWallPulse: false, standbyHinted: false, lastActionAt: 0, trackedSince: 0 },
     difficulty: options.difficulty ?? 1,
     cycle: options.cycle ?? 1,
     ending: null,
@@ -132,12 +136,62 @@ export function isOperational(building) {
   return Boolean(building && !building.anchor && building.hp > 0 && building.buildRemaining <= 0);
 }
 
+
 export function isPlaceholder(building) {
   return Boolean(building && Number.isInteger(building.anchor));
 }
 
 export function getMap(state, mapId = state.currentMap) {
   return state.maps[mapId];
+}
+
+const CONNECTIVITY_CACHE = new WeakMap();
+
+export function getConnectivity(map, depth = 0) {
+  const layer = getLayer(map, depth);
+  if (!layer) return new Set();
+  const cached = CONNECTIVITY_CACHE.get(layer);
+  if (cached) return cached;
+  const buildings = layer.buildings;
+  const sources = [];
+  // 网络源：灰烬平原=运算中心（虚拟源，恒连通）；其它地图=中转站；地下层=竖井升降机；轨道=空间站；月背=着陆点。
+  if (map.id === "ash" && depth === 0) sources.push(CORE_INDEX);
+  if (map.id === "moon" && depth === 0 && Number.isInteger(map.landingSite)) sources.push(map.landingSite);
+  for (let index = 0; index < buildings.length; index += 1) {
+    const building = buildings[index];
+    if (!building || building.anchor || !isOperational(building)) continue;
+    if (depth === 0 && building.id === "hub") sources.push(index);
+    if (depth > 0 && ["elevator", "beacon", "shaftElevator"].includes(building.id)) sources.push(index);
+    if (map.id === "orbit" && building.id === "spaceStation") sources.push(index);
+  }
+  const visited = new Set();
+  const queue = [...sources];
+  while (queue.length) {
+    const anchor = queue.shift();
+    if (visited.has(anchor)) continue;
+    visited.add(anchor);
+    const x = anchor % MAP_SIZE; const y = Math.floor(anchor / MAP_SIZE);
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nx=x+dx, ny=y+dy; if(nx<0||ny<0||nx>=MAP_SIZE||ny>=MAP_SIZE) continue;
+      const idx=ny*MAP_SIZE+nx;
+      const cell = buildings[idx];
+      // 只穿过「运营中的建筑」与「已解锁格」。
+      if (cell && isOperational(cell)) queue.push(resolveAnchorIndex(buildings, idx));
+      else if (!cell && layer.unlocked[idx]) queue.push(idx);
+    }
+  }
+  if (!sources.length) {
+    // 没有网络源：全层设施视为连通（替代"自动落信标"，避免软锁）。
+    for (let index = 0; index < buildings.length; index += 1) if (isOperational(buildings[index])) visited.add(resolveAnchorIndex(buildings, index));
+  }
+  CONNECTIVITY_CACHE.set(layer, visited);
+  return visited;
+}
+
+export function isConnected(map, index, depth = 0) {
+  const buildings = getLayerBuildings(map, depth);
+  const anchor = resolveAnchorIndex(buildings, index);
+  return getConnectivity(map, depth).has(anchor);
 }
 
 export function getLayer(map, depth = map.currentDepth ?? 0) {
@@ -289,9 +343,9 @@ export function canBuildAt(state, mapId, index, buildingId, depth = null) {
   const layer = getLayer(map, depth ?? map.currentDepth ?? 0);
   if (!layer) return result(false, "该地下层尚未打通。");
   if (mapId === "ash" && layer.depth === 0 && index === CORE_INDEX) return result(false, "运算中心占用此格。它拒绝搬家。");
-  if (!hasTech(state, definition.unlock)) return result(false, "尚未完成对应科研。");
+  if (!hasTech(state, definition.unlock)) return result(false, "尚未完成对应科技。");
   if (definition.maps && !definition.maps.includes(mapId)) return result(false, "该建筑无法在此环境工作。");
-  if (layer.depth > 0 && ["logistics", "aerospace"].includes(definition.category)) return result(false, "物流与航天设施只能建在地表。");
+  if (layer.depth > 0 && ["logistics", "aerospace"].includes(definition.category) && !definition.minDepth) return result(false, "物流与航天设施只能建在地表。");
   if (layer.depth > 0 && !layer.unlocked[index]) return result(false, "这里仍是岩层，需要爆破或地下支撑。");
   const size = definition.size ?? { w: 1, h: 1 };
   const footprint = getFootprint(index, size);
@@ -312,6 +366,10 @@ export function canBuildAt(state, mapId, index, buildingId, depth = null) {
   if (buildingId === "hub" && getAllLayers(map).some((item) => item.buildings.some((building) => building?.id === "hub"))) {
     return result(false, "每张地图仅能保留一座中转站。");
   }
+  if (buildingId === "shaftElevator" && getAllLayers(map).some((item) => item.buildings.some((building) => building?.id === "shaftElevator"))) {
+    return result(false, "每张地图仅能保留一座竖井升降机。");
+  }
+  if (definition.minDepth && layer.depth < definition.minDepth) return result(false, "该设施只能建在地下层。");
   const cost = existing?.id === buildingId ? getUpgradeCost(state, buildingId, existing.count) : getBuildCost(state, buildingId, mapId);
   for (const [resource, amount] of Object.entries(cost)) {
     if ((map.resources[resource] ?? 0) < amount) return result(false, `${RESOURCE_NAMES[resource] ?? resource}不足。`, { cost });
@@ -371,8 +429,14 @@ function applyBuild(state, action) {
     for (const cellIndex of validation.footprint) {
       if (cellIndex !== anchorIndex) layer.buildings[cellIndex] = { anchor: anchorIndex };
     }
+    if (definition.ability?.support) {
+      unlockArea(layer, anchorIndex, definition.ability.support);
+      addLog(state, "support", { name: definition.name }, "good");
+    }
   }
   state.stats.built += 1;
+  if (action.buildingId === "scrapyard") state.stats.scrapyardsBuilt += 1;
+  state.stats.peakFacilities = Math.max(state.stats.peakFacilities, Object.values(state.maps).reduce((total, map) => total + map.buildings.filter(Boolean).length, 0));
   addLog(state, "build", { name: definition.name });
   gameEvents.emit("build", { mapId: action.mapId, index: action.index, buildingId: action.buildingId, depth });
   return result(true, `${definition.name}已开始建造。`);
@@ -383,12 +447,12 @@ function applyResearch(state, action) {
   if (!tech) return result(false, "未知科技。");
   if (state.techs.includes(tech.id)) return result(false, "该科技已完成。");
   if (!tech.requires.every((techId) => state.techs.includes(techId))) return result(false, "前置科技尚未完成。");
-  if (state.data < tech.cost) return result(false, "数据不足。研究所仍在等待输入。");
+  if (state.data < tech.cost) return result(false, "算力不足。研究所仍在等待输入。");
   state.data -= tech.cost;
   state.techs.push(tech.id);
   addLog(state, "research", { name: tech.name }, "good");
   gameEvents.emit("research", { techId: tech.id });
-  return result(true, `科研完成：${tech.name}`);
+  return result(true, `科技完成：${tech.name}`);
 }
 
 function applyExpansion(state, action) {
@@ -441,7 +505,7 @@ function applyRouteUpgrade(state, action) {
 
 function applyRocketStart(state) {
   if (state.rocket.stage !== "idle") return result(false, "火箭工程已经在进行中。");
-  if (!hasTech(state, "tech_rocketry")) return result(false, "需要完成火箭工程科研。");
+  if (!hasTech(state, "tech_rocketry")) return result(false, "需要完成火箭工程科技。");
   if (!findCompletedBuilding(state, "orbit", "launchpad") || !findCompletedBuilding(state, "orbit", "rocketFactory")) {
     return result(false, "轨道残骸带需要已建成的发射台与火箭装配厂。");
   }
@@ -481,6 +545,7 @@ function applyDamage(state, damage) {
   if (building.hp > 0) return false;
   layer.destroyed[anchorIndex] += 1;
   for (const cellIndex of getFootprint(anchorIndex, getBuildingSize(building))) layer.buildings[cellIndex] = null;
+  CONNECTIVITY_CACHE.delete(layer);
   state.stats.destroyed += 1;
   return true;
 }
@@ -517,15 +582,34 @@ function applyPulse(state, action) {
   state.rngState = action.rngState;
   state.nextPulseDay = action.nextPulseDay;
   state.stats.pulses += 1;
+  if (state.stats.pulses === 1 && state.stats.scrapyardsBuilt === 0) state.stats.firstPulseNoScrapyard = true;
+  let shieldedCells = 0;
+  for (const damage of action.damages) {
+    const map = getMap(state, damage.mapId);
+    const layer = getLayer(map, damage.depth ?? 0);
+    if (!layer) continue;
+    const aura = getShieldAura(state, damage.mapId, damage.index, layer.depth);
+    if (aura > 0) shieldedCells += 1;
+  }
+  if (shieldedCells >= 12 && destroyed === 0) state.stats.shieldWallPulse = true;
   addLog(state, "pulseReport", { damaged, destroyed, loss: lossPercent }, destroyed > 0 ? "alert" : "good");
   gameEvents.emit("disaster", { damages: action.damages, cutRoutes: action.cutRoutes });
   return result(true, `本次脉冲：${damaged} 座受损，${destroyed} 座摧毁，总耐久损失 ${lossPercent}%。`);
 }
 
+const INTERNAL_ACTIONS = new Set(["ADVANCE_TIME", "BUILD_TICK", "ROCKET_TICK", "ENERGY", "PRODUCTION", "LOGISTICS", "LOG", "TIME", "PULSE", "CORROSION", "HAZARD_DAMAGE", "COLLAPSE", "PULSE_WARNING", "STORM", "SET_HAZARD_TIMER"]);
+
 export function apply(state, action) {
+  if (!INTERNAL_ACTIONS.has(action.type)) {
+    state.stats.lastActionAt = state.elapsed;
+    state.stats.idleSeconds = 0;
+  }
   switch (action.type) {
-    case "BUILD":
-      return applyBuild(state, action);
+    case "BUILD": {
+      const response = applyBuild(state, action);
+      if (response.ok) { const layer = getLayer(getMap(state, action.mapId), action.depth ?? 0); if (layer) CONNECTIVITY_CACHE.delete(layer); }
+      return response;
+    }
     case "ADVANCE_TIME": {
       state.elapsed += action.dt;
       state.day = Math.floor(state.elapsed / DAY_SECONDS) + 1;
@@ -539,6 +623,7 @@ export function apply(state, action) {
             if (!building || building.anchor || building.buildRemaining <= 0) continue;
             building.buildRemaining = Math.max(0, building.buildRemaining - action.dt);
             if (building.buildRemaining > 0) continue;
+            CONNECTIVITY_CACHE.delete(layer); // 竣工会改变连通集合（新运营建筑可通行、被连通）
             const definition = BUILDING_BY_ID[building.id];
             state.stats.completed += 1;
             addLog(state, "complete", { name: definition.name }, "good");
@@ -585,6 +670,7 @@ export function apply(state, action) {
         if (!RESOURCE_IDS.includes(resource)) continue;
         map.resources[resource] = clampResource(safeAdd(map.resources[resource], delta), getCapacity(state, action.mapId, resource));
       }
+      if ((action.deltas?.steel ?? 0) > 0) state.stats.steelProduced = safeAdd(state.stats.steelProduced, action.deltas.steel);
       if (action.dataDelta > 0) {
         state.data = safeAdd(state.data, action.dataDelta);
         state.totalData = safeAdd(state.totalData, action.dataDelta);
@@ -628,7 +714,7 @@ export function apply(state, action) {
     }
     case "UPGRADE_CENTER": {
       const cost = 100 * (state.centerLevel ** 2);
-      if (state.data < cost) return result(false, `升级需要 ${cost} 数据。`);
+      if (state.data < cost) return result(false, `升级需要 ${cost} 算力。`);
       state.data -= cost;
       state.centerLevel += 1;
       return result(true, `运算中心已升级至 LV.${state.centerLevel}。`);
@@ -687,6 +773,8 @@ export function apply(state, action) {
         map.resources[resource] = clampResource(map.resources[resource] + amount * building.count * 0.35, getCapacity(state, action.mapId, resource));
       }
       for (const cellIndex of getFootprint(anchorIndex, getBuildingSize(building))) layer.buildings[cellIndex] = null;
+      CONNECTIVITY_CACHE.delete(layer);
+      state.stats.dismantled += 1;
       gameEvents.emit("dismantle", { mapId: action.mapId, index: anchorIndex, buildingId: building.id, depth: layer.depth });
       return result(true, "设施已拆除，返还了 35% 基础材料。");
     }
@@ -703,6 +791,7 @@ export function apply(state, action) {
         map.resources.metal -= 15;
       }
       building.underground = !building.underground;
+      CONNECTIVITY_CACHE.delete(layer);
       return result(true, building.underground ? "建筑已地下化：免疫脉冲，产出降低 30%。" : "建筑已返回地表。");
     }
     case "PULSE_WARNING":
@@ -818,18 +907,37 @@ export function apply(state, action) {
       gameEvents.emit("newgame", {});
       return result(true, `周目 ${state.cycle} 已启动。科技与中心等级保留。`);
     }
+    case "RECORD_REJECT":
+      state.stats.cardRejects += 1;
+      return result(true);
     case "SET_SETTING": {
       const allowed = ["zoom", "speed", "paused", "theme", "fontSize", "sound", "showGross"];
       if (!allowed.includes(action.key)) return result(false, "未知设置项。");
       if (action.key === "zoom" && !ZOOM_STEPS.includes(action.value)) return result(false, "地图大小档位不受支持。");
       if (action.key === "theme" && !["dark", "light"].includes(action.value)) return result(false, "未知主题。");      if (action.key === "fontSize" && ![12, 14, 16].includes(action.value)) return result(false, "字号不受支持。");
       if (action.key === "showGross" && typeof action.value !== "boolean") return result(false, "开关取值无效。");
+      if (action.key === "paused" && action.value === true && state.settings.paused !== true) state.stats.pausesUsed += 1;
       state.settings[action.key] = action.value;
       return result(true);
     }
     default:
       return result(false, `未知操作：${action.type}`);
   }
+}
+
+export function getShieldAura(state, mapId, index, depth = 0) {
+  const map = getMap(state, mapId); const layer = getLayer(map, depth); if (!layer) return 0;
+  const self = resolveAnchorIndex(layer.buildings, index);
+  // 规格：镜面罩对自身无效，自身格不吃任何护盾减免。
+  if (layer.buildings[self]?.id === "mirrorShield") return 0;
+  const anchor = self;
+  const x = anchor % MAP_SIZE; const y = Math.floor(anchor / MAP_SIZE); let count = 0;
+  for (let dy = -1; dy <= 1; dy += 1) for (let dx = -1; dx <= 1; dx += 1) {
+    if (!dx && !dy) continue; const nx=x+dx, ny=y+dy; if(nx<0||ny<0||nx>=MAP_SIZE||ny>=MAP_SIZE) continue;
+    const building = layer.buildings[ny * MAP_SIZE + nx];
+    if (building && !building.anchor && isOperational(building) && building.id === "mirrorShield" && (map.energy.disabled ?? []).includes(`${depth}:${ny * MAP_SIZE + nx}`) === false && isConnected(map, ny * MAP_SIZE + nx, depth)) count += 1;
+  }
+  return Math.min(0.45, count * 0.06);
 }
 
 export function getBuildingResistance(state, mapId, index, depth = 0) {
@@ -840,7 +948,8 @@ export function getBuildingResistance(state, mapId, index, depth = 0) {
   const accumulated = 1 - Math.exp(-(layer.destroyed[anchorIndex] ?? 0) / 3);
   const building = layer.buildings[anchorIndex];
   const fortification = building && isOperational(building) ? (BUILDING_BY_ID[building.id].ability?.resistance ?? 0) * building.count : 0;
-  return Math.min(0.9, accumulated + fortification);
+  const shield = getShieldAura(state, mapId, anchorIndex, depth);
+  return Math.min(0.9, accumulated + fortification + shield);
 }
 
 export function getCenterUpgradeCost(state) {
