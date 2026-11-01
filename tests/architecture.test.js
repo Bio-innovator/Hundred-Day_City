@@ -181,7 +181,7 @@ test("旧版 1×1 存档迁移后保留建筑并补齐层与尺寸字段", () =>
   payload.state.maps.orbit.buildings[41] = { id: "warehouse", count: 1, hp: 160, maxHp: 160, buildTotal: 20, buildRemaining: 0, underground: false };
 
   const restored = migrateAndValidate(payload);
-  assert.equal(restored.version, 2);
+  assert.equal(restored.version, 3);
   assert.equal(restored.maps.orbit.buildings[40].id, "solar");
   assert.equal(restored.maps.orbit.buildings[41].id, "warehouse");
   assert.equal(isOperational(restored.maps.orbit.buildings[40]), true);

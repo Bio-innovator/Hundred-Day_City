@@ -142,11 +142,11 @@ test("日冕脉冲有预警、造成损伤且不清空科技与地图", () => {
   place(state, "ash", 100, "solar");
   state.techs.push("tech_grid");
   state.nextPulseDay = 3;
-  state.elapsed = 60;
+  state.elapsed = 90;
   state.day = 2;
   simulateTick(state, 1);
   assert.ok(state.logs.some((entry) => entry.tone === "alert" && entry.text.includes("脉冲")));
-  state.elapsed = 120;
+  state.elapsed = 180;
   state.day = 3;
   simulateTick(state, 1);
   assert.equal(state.stats.pulses, 1);
