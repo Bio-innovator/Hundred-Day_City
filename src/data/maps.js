@@ -1,6 +1,6 @@
 export const MAP_SIZE = 24;
 export const TILE_SIZE = 24;
-export const DAY_SECONDS = 60;
+export const DAY_SECONDS = 90;
 
 export const MAPS = [
   {
@@ -28,6 +28,8 @@ export const MAPS = [
       chip: 0,
       helium3: 0,
       fuel: 0,
+      alloy: 0,
+      regolith: 0,
       data: 0
     },
     baseCapacity: {
@@ -41,6 +43,8 @@ export const MAPS = [
       chip: 150,
       helium3: 100,
       fuel: 100,
+      alloy: 200,
+      regolith: 200,
       data: 1000
     },
     solar: 1,
@@ -84,6 +88,8 @@ export const MAPS = [
       chip: 40,
       helium3: 0,
       fuel: 0,
+      alloy: 0,
+      regolith: 0,
       data: 0
     },
     baseCapacity: {
@@ -97,6 +103,8 @@ export const MAPS = [
       chip: 180,
       helium3: 100,
       fuel: 100,
+      alloy: 200,
+      regolith: 200,
       data: 1200
     },
     solar: 0.65,
@@ -140,6 +148,8 @@ export const MAPS = [
       chip: 40,
       helium3: 0,
       fuel: 0,
+      alloy: 0,
+      regolith: 0,
       data: 0
     },
     baseCapacity: {
@@ -153,6 +163,8 @@ export const MAPS = [
       chip: 180,
       helium3: 100,
       fuel: 100,
+      alloy: 200,
+      regolith: 200,
       data: 1200
     },
     solar: 0.9,
@@ -196,6 +208,8 @@ export const MAPS = [
       chip: 60,
       helium3: 20,
       fuel: 0,
+      alloy: 0,
+      regolith: 0,
       data: 0
     },
     baseCapacity: {
@@ -209,6 +223,8 @@ export const MAPS = [
       chip: 220,
       helium3: 300,
       fuel: 150,
+      alloy: 200,
+      regolith: 200,
       data: 1400
     },
     solar: 0,
@@ -252,6 +268,8 @@ export const MAPS = [
       chip: 80,
       helium3: 40,
       fuel: 40,
+      alloy: 0,
+      regolith: 0,
       data: 0
     },
     baseCapacity: {
@@ -265,6 +283,8 @@ export const MAPS = [
       chip: 400,
       helium3: 250,
       fuel: 300,
+      alloy: 200,
+      regolith: 200,
       data: 1800
     },
     solar: 1.35,
@@ -308,6 +328,8 @@ export const MAPS = [
       chip: 300,
       helium3: 120,
       fuel: 100,
+      alloy: 0,
+      regolith: 0,
       data: 100
     },
     baseCapacity: {
@@ -321,6 +343,8 @@ export const MAPS = [
       chip: 400,
       helium3: 500,
       fuel: 350,
+      alloy: 200,
+      regolith: 200,
       data: 2500
     },
     solar: 0,
