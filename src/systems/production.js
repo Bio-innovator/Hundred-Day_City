@@ -1,6 +1,6 @@
 import { BUILDING_BY_ID } from "../data/buildings.js";
 import { MAP_BY_ID, MAP_SIZE } from "../data/maps.js";
-import { RESOURCE_IDS, getBuildingSize, getFootprintNeighbors, getLayer, getLayerBuildings, getAllLayers, getTechMultiplier, isOperational, resolveAnchorIndex } from "../core/state.js";
+import { RESOURCE_IDS, getBuildingSize, getFootprintNeighbors, getLayer, getLayerBuildings, getAllLayers, getTechMultiplier, isConnected, isOperational, resolveAnchorIndex } from "../core/state.js";
 
 export function getAdjacencyMultiplier(state, mapId, index, definition, depth = 0) {
   const buildings = getLayerBuildings(state.maps[mapId], depth);
@@ -53,7 +53,7 @@ export function computeProduction(state, mapId, dt = 0.1) {
   for (const layer of getAllLayers(map)) {
     for (let index = 0; index < layer.buildings.length; index += 1) {
       const building = layer.buildings[index];
-      if (!isOperational(building) || disabled.has(`${layer.depth}:${index}`)) continue;
+      if (!isOperational(building) || disabled.has(`${layer.depth}:${index}`) || !isConnected(map, index, layer.depth)) continue;
       const definition = BUILDING_BY_ID[building.id];
       let multiplier = getBuildingOutputMultiplier(state, mapId, index, layer.depth) * map.energy.efficiency;
       if (layer.depth > 0 && definition.category === "extraction") multiplier *= 1.5;

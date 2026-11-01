@@ -1,4 +1,4 @@
-import { apply } from "./state.js";
+import { apply, getAllLayers, isConnected, isOperational } from "./state.js";
 import { computeEnergy } from "../systems/energy.js";
 import { computeProduction } from "../systems/production.js";
 import { computeLogistics } from "../systems/logistics.js";
@@ -20,6 +20,24 @@ export function simulateTick(state, dt = FIXED_STEP, options = {}) {
   }
 
   apply(state, { type: "LOGISTICS", ...computeLogistics(state, dt) });
+
+  state.stats.idleSeconds += dt;
+  let blackout = false;
+  let standbyCount = 0;
+  for (const map of Object.values(state.maps)) {
+    if (map.energy.demand > map.energy.supply && map.energy.demand > 0) blackout = true;
+    for (const layer of getAllLayers(map)) {
+      for (let index = 0; index < layer.buildings.length; index += 1) {
+        const building = layer.buildings[index];
+        if (isOperational(building) && !isConnected(map, index, layer.depth)) standbyCount += 1;
+      }
+    }
+  }
+  if (blackout) state.stats.blackoutSeconds += dt;
+  if (standbyCount > 0 && !state.stats.standbyHinted) {
+    state.stats.standbyHinted = true;
+    apply(state, { type: "LOG", key: "standby", values: { count: standbyCount }, tone: "alert" });
+  }
 
   if (!options.skipDisasters) {
     for (const action of getDisasterActions(state, dt)) apply(state, action);

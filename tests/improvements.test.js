@@ -5,7 +5,8 @@ import { diagnose } from "../src/systems/diagnose.js";
 
 function addBuilding(state, mapId, id, buildRemaining = 0) {
   const map = state.maps[mapId];
-  map.buildings.push({
+  const index = map.buildings.findIndex((cell) => cell === null);
+  map.buildings[index] = {
     id,
     count: 1,
     hp: 100,
@@ -13,7 +14,7 @@ function addBuilding(state, mapId, id, buildRemaining = 0) {
     buildTotal: Math.max(buildRemaining, 1),
     buildRemaining,
     underground: false,
-  });
+  };
 }
 
 function setEnergy(state, mapId, supply, demand, efficiency = 1) {

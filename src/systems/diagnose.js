@@ -1,8 +1,9 @@
-import { RESOURCE_NAMES, isOperational } from "../core/state.js";
+import { RESOURCE_NAMES, isConnected, isOperational } from "../core/state.js";
 import { BUILDING_BY_ID } from "../data/buildings.js";
 
 export function diagnose(state, mapId = state.currentMap) {
   const map = state.maps[mapId];
+  const depth = map.currentDepth ?? 0;
   const buildings = map.buildings.filter(Boolean);
 
   const hasExtraction = buildings.some((building) => BUILDING_BY_ID[building.id]?.category === "extraction");
@@ -12,6 +13,15 @@ export function diagnose(state, mapId = state.currentMap) {
 
   if (map.energy.supply < map.energy.demand) {
     return { code: "low-power", text: `电力不足，全图产出降至 ${Math.round(map.energy.efficiency * 100)}%` };
+  }
+
+  let standby = 0;
+  for (let index = 0; index < map.buildings.length; index += 1) {
+    const building = map.buildings[index];
+    if (isOperational(building) && !isConnected(map, index, depth)) standby += 1;
+  }
+  if (standby > 0) {
+    return { code: "standby", text: `${standby} 座设施未接入网络（待机）` };
   }
 
   for (const building of buildings) {
