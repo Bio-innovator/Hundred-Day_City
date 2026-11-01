@@ -15,11 +15,22 @@ export function getRouteParameters(state, route) {
     const hasElevator = getAllAnchors(state.maps[mapId]).some((building) => isOperational(building) && BUILDING_BY_ID[building.id].ability?.capacityMultiplier);
     if (hasElevator) elevatorMultiplier *= BUILDING_BY_ID.elevator.ability.capacityMultiplier;
   }
+  let relayMultiplier = 1;
+  for (const mapId of [route.a, route.b]) {
+    const relays = getAllAnchors(state.maps[mapId]).filter((building) => isOperational(building) && BUILDING_BY_ID[building.id].ability?.routeCapacity).length;
+    relayMultiplier *= BUILDING_BY_ID.relayStation.ability.routeCapacity ** relays;
+  }
+  let massCapacity = 1;
+  let massLoss = 1;
+  if ((route.a === "moon" || route.b === "moon") && state.maps.moon && getAllAnchors(state.maps.moon).some((building) => isOperational(building) && BUILDING_BY_ID[building.id].ability?.massDriver)) {
+    massCapacity = 2;
+    massLoss = 0.5;
+  }
   const radiationLoss = [route.a, route.b].reduce((loss, mapId) => loss + (MAP_BY_ID[mapId].hazard?.logisticsLoss ?? (mapId === "orbit" ? 0.08 : 0)), 0);
   return {
-    capacity: (base.capacity + getTechEffectTotal(state, "logisticsCapacity")) * elevatorMultiplier,
+    capacity: (base.capacity + getTechEffectTotal(state, "logisticsCapacity")) * elevatorMultiplier * relayMultiplier * massCapacity,
     delay: Math.max(0.5, base.delay * getTechMultiplier(state, "routeDelay")),
-    loss: Math.max(0, Math.min(0.75, base.loss + radiationLoss - getTechEffectTotal(state, "routeLossReduction"))),
+    loss: Math.max(0, Math.min(0.75, (base.loss + radiationLoss - getTechEffectTotal(state, "routeLossReduction")) * massLoss)),
   };
 }
 

@@ -137,6 +137,8 @@ function createResourceColors(palette) {
     data: palette.m,
     helium3: palette.t,
     fuel: palette.x,
+    alloy: palette['7'],
+    regolith: palette['8'],
     energy: palette.g,
   };
 }
