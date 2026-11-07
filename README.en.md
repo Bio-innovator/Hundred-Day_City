@@ -14,35 +14,38 @@ You have no hands. You build facilities and run trade routes until the scattered
 
 ## First 5 Minutes
 
-1. Build 2 solar panels. Power first.
-2. Build 2 scrapyards. Scrap Steel comes from extraction, not from power.
-3. **Do not open with energy only.** Power produces nothing; extraction does. This is the trap everyone falls into.
-4. Each resource row shows stock on the left and net change per second on the right. A rate of 0 means output is fully consumed downstream, or suppressed by a brownout.
-5. Built in the wrong place? Click the cell and use Demolish in the details panel. You get 35% of the base cost back.
+Your first run starts with a guided tutorial that teaches the basics step by step: place a solar panel, place a scrapyard, and raise your Scrap Steel stock to 20. After the tutorial, eight advanced objectives unlock as you meet the systems they teach, covering research, logistics, and disasters. You can replay the whole sequence any time from Settings → About.
 
-The first run walks you through 4 required steps that advance when you actually do them: place a solar panel, place a scrapyard, reach 20 Scrap Steel. Eight advanced objectives unlock as you meet the systems they teach. Replay everything from Settings → About.
+A good opening looks like this:
+
+1. Power first. Build 2 solar panels so everything downstream has electricity.
+2. Then build 2 scrapyards and start producing Scrap Steel. Resources come from extraction buildings. Generators alone produce nothing, which is the most common beginner mistake.
+3. Read the resource rows. Stock sits on the left, net change per second on the right. A rate of 0 means output is fully consumed downstream, or the facility is throttled by a brownout.
+4. Built in the wrong place? Click the cell and use Demolish in the details panel to recover 35% of the base cost.
+
+If a resource stops growing for a long time, check in this order: whether you are missing extraction facilities; whether power is sufficient; whether downstream facilities are missing inputs; and whether the facility is still under construction. When none of these apply, the map status reads "network running". Biomass pinned at 0 is not always a bug. When chemical plants consume everything a bioreactor makes, the net rate is zero. The resource row shows gross output and gross consumption separately, so you can tell where the bottleneck is.
 
 ## Why Resources Stall
 
-The map toolbar prints a live diagnosis. Check in this order:
+The map toolbar prints a live diagnosis. When something looks stuck, check in this order:
 
-1. **No extraction facility.** Build a scrapyard, mine, or bioreactor. Generators alone never move resources.
-2. **Not enough power.** Add solar, wind, or other generators. A long shortage starts load shedding on the hungriest consumers.
-3. **Missing input.** A smelter without Scrap Steel is idle. Check that upstream extraction is finished and powered.
-4. **Still under construction.** Every facility is scaffolding. Wait for the progress bar.
+1. **No extraction facility.** Only scrapyards, mines, and bioreactors produce resources. Generators alone never move the numbers.
+2. **Not enough power.** Add solar panels or wind turbines. A long shortage starts shedding the hungriest consumers first.
+3. **Missing input.** A smelter without Scrap Steel sits idle. Confirm the upstream facility is finished and powered.
+4. **Still under construction.** Every facility is scaffolding until its progress bar completes.
 5. If all of the above is fine, the toolbar reads "network running".
 
-Biomass pinned at 0 is not always a bug. When chemical plants consume everything a bioreactor makes, the net rate is zero. The resource row shows gross output and gross consumption separately.
+Biomass pinned at 0 is not always a bug. When chemical plants consume everything a bioreactor makes, the net rate is zero. The resource row shows gross output and gross consumption separately, so you can tell the two apart.
 
 ## Controls
 
-- Pick a blueprint on the left, click an empty cell. Large facilities occupy 2×2, 3×3, or 5×5; edge and overlap conflicts are reported before you pay.
-- Click a finished facility to upgrade. Output ×1.6, and the damage multiplier from Coronal Pulses rises with it — the exact risk is printed in the details panel.
-- Hold Ctrl and scroll over the map to zoom, anchored on the cell under the cursor. On touch, pinch with two fingers. The 1× / 2× / 3× buttons in Settings remain the fallback.
-- ▲ / ▼ on the map switches underground depth. The top bar holds Research, Network, Endgame, and Settings; on mobile the bottom bar switches Build, Map, Research, Logistics, and Log.
-- Saves export as a dated file, import by drag and drop, and still accept Base64 text. Imports show a summary first, back up your current run, then overwrite.
+- Pick a blueprint on the left, then click an empty cell. Large facilities occupy 2×2, 3×3, or 5×5 as one footprint, and the game warns you before you pay if the placement crosses the edge or overlaps another facility.
+- Click a finished facility to upgrade. Output rises to 1.6×, and the damage risk from disasters rises with it. The exact risk is printed in the details panel.
+- Hold Ctrl and scroll over the map to zoom, anchored on the cell under the cursor. On touch screens, pinch with two fingers. The 1× / 2× / 3× buttons in Settings remain the fallback.
+- ▲ / ▼ on the map switches underground depth. The top bar holds Research, Network, Endgame, and Settings; on mobile, the bottom bar switches between Build, Map, Research, Logistics, and Log.
+- Saves export as a dated file, import by drag and drop, and also accept Base64 text. An import always shows a summary and writes a backup of your current run before anything is overwritten.
 
-Drag the map to pan (moves beyond 4px never build). Press `R`, `Ctrl + 0`, or the `⌖` button on the map toolbar to reset the view to centred at 100%. With a blueprint selected, hovering draws the full footprint: cyan plus a translucent ghost when buildable, red when blocked.
+Drag the map to pan the view. Moves beyond 4px never trigger a build. Press `R`, `Ctrl + 0`, or the `⌖` button on the map toolbar to reset the view to centred at 100%. With a blueprint selected, hovering draws the full footprint: cyan with a translucent ghost when buildable, red when blocked.
 
 The game is fully paused while the page is closed: no production, no day counter, no disasters.
 
@@ -59,31 +62,32 @@ The game is fully paused while the page is closed: no production, no day counter
 
 ## Core Rules
 
-- **Brownouts scale output, they do not stop the map.** Efficiency becomes `supply / demand`. After 30 seconds of shortage, the largest consumers are shed first.
-- One in-game day is 90 seconds at 1× speed. One hundred days is roughly 150 minutes.
+- Brownouts scale output instead of stopping the map. Efficiency becomes supply divided by demand. After 30 seconds of shortage, the largest consumers are shed first.
+- One in-game day is 90 seconds at 1× speed, so one hundred days is roughly 150 minutes.
 - Every map has its own grid, stock, hazard pressure, and Transit Hub. Resources cross maps only by Trade Route.
-- Routes have capacity, delay, and loss. A pulse can cut them; reconnecting costs scrap.
-- A Coronal Pulse is warned one day ahead and deals 50%–70% of max HP to an unprotected facility. Repeated destruction on the same cell builds resistance, and Fortification adds more. Underground facilities ignore pulses but produce 70%.
-- Ash Storms arrive every 180–300 seconds and last 20–30 seconds: 50% output, ash particles at the screen edge.
-- **Connectivity matters.** A facility only runs while it is reachable from a network source: the Compute Center on Ash Plains, a Transit Hub on other maps, a Shaft Elevator underground, a Space Station in orbit. Disconnected facilities go on standby — no output, no power draw. The map status text is clickable and jumps to the first problem facility.
-- Launch chain: launchpad → rocket factory → structural assembly → fuel loading → launch → lunar landing → Data Core city.
-- Three endings: Back Up Civilization, Stay (unlocks on Day 100), Upload (needs the upload tech). After any ending you can start New Game+ and keep tech and Compute Center level.
+- Routes have capacity, delay, and loss. A pulse can cut a route, and reconnecting costs scrap.
+- A Coronal Pulse is warned one day ahead and deals 50% to 70% of max HP to a facility without resistance. Repeated damage on the same cell builds cell resistance, and the Fortification tech adds more. Underground facilities ignore pulses but produce at 70%.
+- Ash Storms arrive every 180 to 300 seconds and last 20 to 30 seconds, cutting output by half while ash particles gather at the screen edge.
+- Connectivity matters. A facility only runs while it is reachable from a network source: the Compute Center on the Ashen Plains, a Transit Hub on other maps, a Shaft Elevator underground, or a Space Station in orbit. Disconnected facilities go on standby with no output and no power draw. The map status text is clickable and jumps to the first problem facility.
+- The launch chain runs in order: launchpad, rocket factory, structural assembly, fuel loading, launch, lunar landing, then building the city around the Data Core.
+- Three endings are available: Back Up Civilization, Stay (opens on Day 100), and Upload (requires the consciousness upload tech). After any ending you can start New Game+ and keep your tech and Compute Center level.
 
 ## Underground and Large Facilities
 
 - A blast charge detonates 10 seconds after placement, opens the next depth, and clears a 3×3 pocket around the blast point.
 - Underground supports convert adjacent rock into buildable ground. Depth is capped at 3.
-- No sunlight and no storms underground: solar and wind produce nothing, extraction produces ×1.5.
-- Collapses happen at random and turn a cell back into rock, burying whatever stood there.
-- The 5×5 launchpad and rocket factory, the 3×3 orbital elevator and fuel plant, and the 2×2 assembler, chip fab, and Data Core all count adjacency and damage as one footprint.
-- Achievements and their quotations are written to the watch log and shown as a non-modal card when unlocked. The full list lives in the Achievements entry on the top bar.
+- There is no sunlight and no storms underground. Solar panels and wind turbines produce nothing, while extraction runs at 1.5× output.
+- Collapses happen at random underground, turning a cell back into rock and burying whatever stood there.
+- The launchpad and rocket factory occupy 5×5, the orbital elevator and fuel plant occupy 3×3, and the assembler, chip fab, and Data Core occupy 2×2. Each large facility counts adjacency and damage as one footprint.
+- Achievements and their quotations are written to the watch log and shown as a card when unlocked. The full list lives under Achievements on the top bar.
 
 ### Mirror Shield
 
-- Costs 120 metal · 30 chip · 40 rare, 120 HP, needs `tech_hardening`.
-- Gives every surrounding cell (8 directions) −6% pulse damage per shield, capped at −45% per cell. It does not protect itself.
-- The shield must be connected and powered: standby or load-shedding drops its reduction to zero — a deliberate risk.
-- Reduction stacks with cell resistance and Fortification, still capped at 90%. It does not offset the `2^(Lv−1)` stack risk; its job is protecting key nodes.
+- It costs 120 metal, 30 chips, and 40 rare materials, has 120 HP, and requires the Fortification tech.
+- Each shield gives the 8 surrounding cells (including diagonals) a 6% pulse damage reduction, capped at 45% per cell. It does not protect itself.
+- The shield only works while connected and powered. Standby or load shedding drops its reduction to zero.
+- The reduction stacks with cell resistance and Fortification, up to a total cap of 90%. It cannot offset the exponential risk from upgrading, so use it to protect key nodes.
+- Selecting a shield highlights the 8 cells it covers.
 
 ### Underground and Space Facilities
 
@@ -104,7 +108,7 @@ The game is fully paused while the page is closed: no production, no day counter
 | Cryo Lab | Farside | 3×3 | Compute +5/s |
 | Mass Driver | Farside | 5×5 | Farside routes ×2 capacity, half loss |
 
-Orbit and the farside are vacuum: solar panels and wind turbines produce nothing there, so fission, fusion, and solar satellites carry the load. Alloy and regolith are saved with the run.
+Orbit and the lunar farside are vacuum. Solar panels and wind turbines produce nothing there, so fission plants, fusion plants, and solar satellites carry the power grid. Alloy and regolith are exclusive to orbit and the farside and persist through save and load.
 
 ## Saves
 
