@@ -4,7 +4,7 @@
 
 一款像素风基地建造与多地图物流增量游戏。建造设施、铺设商路，在一百天内把文明备份送往月背。
 
-在线试玩：https://bio-innovator.github.io/game/
+在线试玩：https://bio-innovator.github.io/Hundred-Day_City/
 
 ## 背景
 
