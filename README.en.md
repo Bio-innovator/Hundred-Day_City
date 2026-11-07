@@ -4,7 +4,7 @@ English | [简体中文](README.md)
 
 A pixel-art base builder and multi-map logistics idle game. Build facilities, run trade routes, and put civilization's backup on the lunar farside within one hundred days.
 
-Play in browser: https://bio-innovator.github.io/game/
+Play in browser: https://bio-innovator.github.io/Hundred-Day_City/
 
 ## Background
 
